@@ -12,5 +12,6 @@ class ResizePreprocessingLayer(PreprocessLayer):
         super().__init__()
 
     def process(self, image: ndarray) -> ndarray:
+        # print(len(image))
         img = cv.resize(image,(self._w, self._h), interpolation= cv.INTER_LINEAR)
         return img

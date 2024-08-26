@@ -4,33 +4,64 @@ import os
 import json
 import numpy as np
 import cv2 as cv
-
 import matplotlib.pyplot as plt
+
+from typing import Tuple
+
+from sklearn import metrics
 from utils import ResizePreprocessingLayer, PreprocessLayer
 from copy import deepcopy
 
 class KNN(object):
-    def __init__(self) -> None:
+    def __init__(self, k) -> None:
         self._preprocessLayers = []
         self._dataset = []
+        self._valDataset = []
         self._labels = []
+        self._valLabels = []
+        self._k = k
         
 
-    def predict(self, image : np.ndarray) -> bool:
+    def predict(self, image : np.ndarray) -> Tuple[float, float]:
         '''
         Classify if the input image is of the dataset type.
         ### Parameters
         1. image : numpy.array  Image to predict
         ### Returns
-        - bool- True if the image if of the type        
+        - float- percent of
         '''
+        # print("predict")
+
         img = deepcopy(image)
         img = self._preprocess(img)
-        plt.imshow(img)
-        plt.show()
         img = img.flatten()
-        print(self._dataset - img)
-        return False
+        # distances = np.sqrt(np.sum(np.power(self._dataset - img,2),axis=1))
+        distances = np.linalg.norm(self._dataset - img,axis=1)
+        selection = []
+        for i in range(len(distances)):
+            if len(selection) <= self._k:
+                selection.append((distances[i], self._labels[i]))
+                selection.sort(key= lambda x : x[0])
+            else:
+                # print(distances)
+                if distances[i] < selection[-1][0]:
+                    selection.append((distances[i], self._labels[i]))
+                    selection.sort(key= lambda x : x[0])
+                    selection.pop()
+        # print("end predict")
+
+        votes = {}
+        for vote in np.array(selection)[:,1]:
+            if vote in votes.keys():
+                votes[vote] += 1
+            else:
+                votes[vote] = 1
+        winner = None
+        for key in votes.keys():
+            if winner == None or votes[key] > votes[winner]:
+                winner = key
+        # print(winner)
+        return (winner, votes[winner] / self._k)
     
     def addPreprocessLayer(self, layer : PreprocessLayer):
         self._preprocessLayers.append(layer)
@@ -41,7 +72,7 @@ class KNN(object):
         layer : PreprocessLayer
         for layer in self._preprocessLayers:
             img = layer.process(img)
-            print(img.shape)
+            # print(img.shape)
         return img
 
     def loadDataset(self, path : str) -> None:
@@ -63,36 +94,63 @@ class KNN(object):
         for entry in config["data"]:
             img = cv.imread(f"{path}/{entry['file']}")
             img = self._preprocess(img)
-            self._dataset.append(img.flatten())
-            self._labels.append(bool(entry["label"]))
-        # print(self._dataset)
-        # print(self._labels)
+            if entry["type"] == "train":
+                self._dataset.append(img.flatten())
+                self._labels.append(float(entry["label"]))
+            elif entry["type"] == "val":
+                self._valDataset.append(img)
+                self._valLabels.append(float(entry["label"]))
+            else:
+                raise Exception(f"Invalid sample type on image {entry['file']}: {entry['type']}")
+        
+    def validate(self):
 
-        # size = (5,5)
-        # total = size[0]*size[1]
-        # fig, axis = plt.subplots(size[0],size[1])
-        # counter = 0
-        # fig_counter = 0
-        # if not os.path.exists("output"):
-        #     os.mkdir("output")
-        # for img, label in zip(self._dataset, self._labels):
-        #     axis[counter//size[0], counter%size[0]].imshow(img)
-        #     axis[counter//size[0], counter%size[0]].set_title(f"Label: {bool(label)}")
-        #     axis[counter//size[0], counter%size[0]].axis("off")
-        #     counter += 1
-        #     if counter >= total:
-        #         counter = 0
-        #         fig.savefig(f"output/output_{fig_counter}")
-        #         fig_counter += 1
-        #         plt.close(fig)
-        #         fig, axis = plt.subplots(size[0],size[1])
-            
+        confusion_matrix = {}
+        # labelsN = {}
+        total_samples = len(self._valDataset)
+        positives = 0
+        predictions = []
+        for img, label in zip(self._valDataset, self._valLabels):
+            if label not in confusion_matrix.keys():
+                confusion_matrix[label] = dict([ (l , 0.0) for l in confusion_matrix.keys()])
+                for key in confusion_matrix.keys(): 
+                    confusion_matrix[key][label] = 0.0
+            pLabel, _ = self.predict(img)
+            predictions.append(pLabel)
+            if pLabel not in confusion_matrix.keys():
+                confusion_matrix[pLabel] = dict([ (l , 0.0) for l in confusion_matrix.keys()])
+                for key in confusion_matrix.keys():
+                    confusion_matrix[key][pLabel] = 0.0
+            # print(confusion_matrix)
+            # print(f"{label} vs {pLabel}")
+            confusion_matrix[label][pLabel] += 1
+            if label == pLabel:
+                positives += 1
+
+        for label_i in confusion_matrix.keys():
+            n = sum(confusion_matrix[label_i].values())
+            for label_j in confusion_matrix.keys():
+                confusion_matrix[label_i][label_j] /= n
+        
+        matrix = []
+        line : dict
+        for line in confusion_matrix.values():
+            matrix.append(list(line.values()))
+
+        confusion_matrix_plot =  metrics.ConfusionMatrixDisplay(confusion_matrix = np.array(matrix), display_labels = ["False","True"])
+        confusion_matrix_plot.plot(cmap="Blues")
+        plt.show()
+        print(confusion_matrix)
+        print(matrix)
+        print(f"Overall acc:{positives/ total_samples}")
+
+        
         
 
 if __name__ == "__main__":
-    knn = KNN()
-    knn.addPreprocessLayer(ResizePreprocessingLayer(256,256))
+    knn = KNN(20)
+    knn.addPreprocessLayer(ResizePreprocessingLayer(128,128))
     knn.loadDataset("./dataset")
-    
-    img = cv.imread("input.jpg")
-    knn.predict(img)
+    knn.validate()
+    # img = cv.imread("input.jpeg")
+    # print(knn.predict(img))

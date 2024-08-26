@@ -1,5 +1,6 @@
 import os
 import json
+from random import random
 def main() -> None:
     entrys = []
     for file in os.listdir("./dataset"):
@@ -7,6 +8,7 @@ def main() -> None:
         entry = {}
         entry["file"] = file_name
         entry["label"] = 1 if file_name.startswith("rosettalia") else 0
+        entry["type"] = "train" if random() < 0.8 else "val"
         entrys.append(entry)
     datafile = {}
     datafile["data"] = entrys

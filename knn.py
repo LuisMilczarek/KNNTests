@@ -20,6 +20,7 @@ class KNN(object):
         self._labels = []
         self._valLabels = []
         self._k = k
+        self._labelsRepr = []
         
 
     def predict(self, image : np.ndarray) -> Tuple[float, float]:
@@ -92,6 +93,9 @@ class KNN(object):
         if not "data" in config.keys():
             raise Exception("Bad config json format")
         for entry in config["data"]:
+            if not os.path.exists(f"{path}/{entry['file']}"):
+                print(f"File doesnt exist: {entry['file']}")
+                continue
             img = cv.imread(f"{path}/{entry['file']}")
             img = self._preprocess(img)
             if entry["type"] == "train":
@@ -102,6 +106,7 @@ class KNN(object):
                 self._valLabels.append(float(entry["label"]))
             else:
                 raise Exception(f"Invalid sample type on image {entry['file']}: {entry['type']}")
+        self._labelsRepr = config["labels"]
         
     def validate(self):
 
@@ -137,7 +142,7 @@ class KNN(object):
         for line in confusion_matrix.values():
             matrix.append(list(line.values()))
 
-        confusion_matrix_plot =  metrics.ConfusionMatrixDisplay(confusion_matrix = np.array(matrix), display_labels = ["False","True"])
+        confusion_matrix_plot =  metrics.ConfusionMatrixDisplay(confusion_matrix = np.array(matrix), display_labels = self._labelsRepr)
         confusion_matrix_plot.plot(cmap="Blues")
         plt.show()
         print(confusion_matrix)

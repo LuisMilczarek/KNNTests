@@ -3,6 +3,7 @@
 import os
 import json
 import numpy as np
+import cupy as cp
 import cv2 as cv
 import matplotlib.pyplot as plt
 
@@ -36,9 +37,11 @@ class KNN(object):
 
         img = deepcopy(image)
         img = self._preprocess(img)
-        img = img.flatten()
+        img = cp.array(img.flatten())
 
-        distances = np.linalg.norm(self._dataset - img,axis=1)
+        dataset = cp.array(self._dataset)
+
+        distances = cp.linalg.norm(dataset - img,axis=1).get()
         selection = []
         for i in range(len(distances)):
             if len(selection) <= self._k:
@@ -50,6 +53,8 @@ class KNN(object):
                     selection.sort(key= lambda x : x[0])
                     selection.pop()
         votes = {}
+        # for ar in selection:
+        #     ar = ar.get()
         for vote in np.array(selection)[:,1]:
             if vote in votes.keys():
                 votes[vote] += 1
@@ -99,7 +104,7 @@ class KNN(object):
                     img = cv.imread(f"{path}/{entry}")
                     img = self._preprocess(img)
                     if type == "train":
-                        self._dataset.append(img.flatten())
+                        self._dataset.append(cp.array(img).flatten().get())
                         self._labels.append(self._labelsRepr.index(label))
                     elif type == "val":
                         self._valDataset.append(img)
@@ -122,7 +127,7 @@ class KNN(object):
         confusion_matrix_plot =  metrics.ConfusionMatrixDisplay(confusion_matrix = matrix, display_labels = self._labelsRepr)
         confusion_matrix_plot.plot(cmap="Blues")
         plt.show()
-        print(f"Overall acc: {positives/ total_samples}, Total time: {total_time}seg, Avg. Time per iteration: {total_time/ len(self._valDataset)}")
+        print(f"Overall acc: {positives/ total_samples}, Total time: {total_time:.4f}s, Avg. Time per iteration: {total_time/ len(self._valDataset):.4f}")
 
 
 if __name__ == "__main__":

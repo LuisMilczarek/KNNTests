@@ -11,7 +11,7 @@ from typing import Tuple
 from time import perf_counter
 
 from sklearn import metrics
-from utils import ResizePreprocessingLayer, PreprocessLayer
+from utils import ResizePreprocessingLayer, PreprocessLayer, RGB2RGBPreprocessingLayer
 from copy import deepcopy
 
 class KNN(object):
@@ -102,8 +102,8 @@ class KNN(object):
                         print(f"File doesnt exist: {entry['file']}")
                         continue
                     img = cv.imread(f"{path}/{entry}")
-                    img = self._preprocess(img)
                     if type == "train":
+                        img = self._preprocess(img)
                         self._dataset.append(cp.array(img).flatten().get())
                         self._labels.append(self._labelsRepr.index(label))
                     elif type == "val":
@@ -132,7 +132,8 @@ class KNN(object):
 
 if __name__ == "__main__":
     knn = KNN(5)
-    knn.addPreprocessLayer(ResizePreprocessingLayer(128,128))
+    knn.addPreprocessLayer(RGB2RGBPreprocessingLayer()).addPreprocessLayer(ResizePreprocessingLayer(128,128))
+
     knn.loadDataset("./dataset")
     knn.validate()
     # img = cv.imread("input.jpeg")

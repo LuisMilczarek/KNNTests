@@ -1,2 +1,3 @@
 from .preprocessinglayer import PreprocessLayer
 from .resize_preprocessinglayer import ResizePreprocessingLayer
+from .rgb2gray_preprocessinglayer import RGB2RGBPreprocessingLayer

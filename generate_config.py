@@ -43,6 +43,7 @@ def main() -> None:
         for i, file in enumerate(files[label]):
             type = "val" if i in files_val_index[label] else "train"
             datafile["data"][type][label].append(file)
+            datafile["summary"][type][label] += 1
 
 
 

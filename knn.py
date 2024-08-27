@@ -33,12 +33,11 @@ class KNN(object):
         ### Returns
         - float- percent of
         '''
-        # print("predict")
 
         img = deepcopy(image)
         img = self._preprocess(img)
         img = img.flatten()
-        # distances = np.sqrt(np.sum(np.power(self._dataset - img,2),axis=1))
+
         distances = np.linalg.norm(self._dataset - img,axis=1)
         selection = []
         for i in range(len(distances)):
@@ -46,13 +45,10 @@ class KNN(object):
                 selection.append((distances[i], self._labels[i]))
                 selection.sort(key= lambda x : x[0])
             else:
-                # print(distances)
                 if distances[i] < selection[-1][0]:
                     selection.append((distances[i], self._labels[i]))
                     selection.sort(key= lambda x : x[0])
                     selection.pop()
-        # print("end predict")
-
         votes = {}
         for vote in np.array(selection)[:,1]:
             if vote in votes.keys():
@@ -63,7 +59,6 @@ class KNN(object):
         for key in votes.keys():
             if winner == None or votes[key] > votes[winner]:
                 winner = key
-        # print(winner)
         return (winner, votes[winner] / self._k)
     
     def addPreprocessLayer(self, layer : PreprocessLayer):
@@ -75,7 +70,6 @@ class KNN(object):
         layer : PreprocessLayer
         for layer in self._preprocessLayers:
             img = layer.process(img)
-            # print(img.shape)
         return img
 
     def loadDataset(self, path : str) -> None:
@@ -114,51 +108,22 @@ class KNN(object):
                         raise Exception(f"Invalid sample type on image {entry['file']}: {entry['type']}")
         
     def validate(self):
-
-        confusion_matrix = {}
-        # labelsN = {}
         total_samples = len(self._valDataset)
         positives = 0
         predictions = []
         print(self._datasetSummary)
         start = perf_counter()
-        for img, label in zip(self._valDataset, self._valLabels):
-            if label not in confusion_matrix.keys():
-                confusion_matrix[label] = dict([ (l , 0.0) for l in confusion_matrix.keys()])
-                for key in confusion_matrix.keys(): 
-                    confusion_matrix[key][label] = 0.0
-            pLabel, _ = self.predict(img)
-            predictions.append(pLabel)
-            if pLabel not in confusion_matrix.keys():
-                confusion_matrix[pLabel] = dict([ (l , 0.0) for l in confusion_matrix.keys()])
-                for key in confusion_matrix.keys():
-                    confusion_matrix[key][pLabel] = 0.0
-            # print(confusion_matrix)
-            # print(f"{label} vs {pLabel}")
-            confusion_matrix[label][pLabel] += 1
-            if label == pLabel:
-                positives += 1
+        for img in self._valDataset:
+            pred,_ = knn.predict(img)
+            predictions.append(pred)
+        matrix = metrics.confusion_matrix(self._valLabels, predictions)
+        matrix = matrix / matrix.sum(axis=1)
         total_time = perf_counter() - start
-
-        for label_i in confusion_matrix.keys():
-            n = sum(confusion_matrix[label_i].values())
-            for label_j in confusion_matrix.keys():
-                confusion_matrix[label_i][label_j] /= n
-        
-        matrix = []
-        line : dict
-        for line in confusion_matrix.values():
-            matrix.append(list(line.values()))
-
-        confusion_matrix_plot =  metrics.ConfusionMatrixDisplay(confusion_matrix = np.array(matrix), display_labels = self._labelsRepr)
+        confusion_matrix_plot =  metrics.ConfusionMatrixDisplay(confusion_matrix = matrix, display_labels = self._labelsRepr)
         confusion_matrix_plot.plot(cmap="Blues")
         plt.show()
-        # print(confusion_matrix)
-        # print(matrix)
         print(f"Overall acc: {positives/ total_samples}, Total time: {total_time}seg, Avg. Time per iteration: {total_time/ len(self._valDataset)}")
 
-        
-        
 
 if __name__ == "__main__":
     knn = KNN(5)
